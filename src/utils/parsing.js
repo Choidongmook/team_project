@@ -46,3 +46,22 @@ export function generateRangeArray(start, end) {
 
   return resultArray;
 }
+
+function removeZero(arr) {
+  return arr.filter((num) => num !== 0);
+}
+
+function removeDuplicates(arr) {
+  return arr.filter((num, index, array) => array.indexOf(num) === index);
+}
+
+function sortAscending(arr) {
+  return arr.sort((a, b) => a - b);
+}
+
+export function processArray(arr) {
+  let result = removeZero(arr);
+  result = removeDuplicates(result);
+  result = sortAscending(result);
+  return result;
+}

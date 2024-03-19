@@ -1,10 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRecoilState, useSetRecoilState } from "recoil";
 import styled from "styled-components";
 import { numberState, sectionState } from "../atoms";
-import { generateRangeArray, parseInputString } from "../utils/parsing";
+import {
+  generateRangeArray,
+  parseInputString,
+  processArray,
+} from "../utils/parsing";
 import Button from "./Button";
+import { wordList } from "../voca/voca";
 
 const Wrapper = styled.div`
   width: 100%;
@@ -12,7 +17,7 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px;
-  padding-top: 35px;
+  box-sizing: border-box;
 `;
 
 const Title = styled.h1`
@@ -24,6 +29,13 @@ const Title = styled.h1`
   color: #f5f6fa;
   background-color: #e1b12c;
   border-radius: 10px;
+
+  ${(props) =>
+    props.$current === "RANGE"
+      ? `
+      transform: scale(1.1); 
+      `
+      : null}
 `;
 
 const Content = styled.div`
@@ -31,6 +43,7 @@ const Content = styled.div`
   height: 100%;
   display: flex;
   align-items: center;
+  padding-top: 70px;
 `;
 
 const Form = styled.form`
@@ -38,6 +51,7 @@ const Form = styled.form`
   flex-direction: column;
   gap: 10px;
   padding-left: 50px;
+  width: 350px;
 `;
 
 const RowDiv = styled.div``;
@@ -87,7 +101,7 @@ const TextBox = styled.input`
   appearance: none; // 기본 브라우저에서 기본 스타일 제거
   font-size: 15px;
   color: #222222;
-  width: ${(props) => (props.custom ? "238px" : "90px")};
+  width: ${(props) => (props.$custom ? "238px" : "90px")};
   border: none;
   border-bottom: solid #aaaaaa 1px;
   padding-bottom: 10px;
@@ -101,7 +115,7 @@ const TextBox = styled.input`
 
   &:-webkit-autofill {
     -webkit-box-shadow: ${(props) =>
-      props.autobg === "RANGE"
+      props.$autobg === "RANGE"
         ? "0 0 0 30px #f5f6fa inset"
         : "0 0 0 30px #dcdde1 inset"};
     /* -webkit-box-shadow: 0 0 0 30px #fff inset; */
@@ -117,6 +131,7 @@ const TextBox = styled.input`
 
 const ErrorDiv = styled.div`
   padding-left: 15px;
+  margin-top: 5px;
   height: 20px;
   font-size: 15px;
   color: #e84118;
@@ -125,53 +140,98 @@ const ErrorDiv = styled.div`
 const ButtonDiv = styled.div`
   display: flex;
   justify-content: flex-end;
+  padding-right: 42px;
 `;
 
 const RangeSec = () => {
-  const { register, handleSubmit, reset } = useForm();
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+    setError,
+  } = useForm();
   const [selectedOption, setSelectedOption] = useState("option1");
   const [currentSection, setCurrentSection] = useRecoilState(sectionState);
   const setNumber = useSetRecoilState(numberState);
+  const [totalPages, setTotalPages] = useState(0);
+
+  useEffect(() => {
+    const totalPages = getPages();
+    setTotalPages(totalPages);
+  }, []);
+
+  const getPages = () => {
+    //0일 때 에러처리
+    return wordList.length;
+  };
 
   const handleRadioChange = (event) => {
     const option = event.target.value;
     setSelectedOption(option);
     if (option !== "option1") {
-      //2 비우기
+      setValue("defaultFrom", "");
+      setValue("defaultTo", "");
+      setError("defaultFrom", "");
+      setError("defaultTo", "");
     } else {
-      //1 비우기
+      setValue("custom", "");
+      setError("custom", "");
     }
   };
 
   const onValid = (data) => {
     let resultNum = [];
-    if (selectedOption === "option1" && data.defaultFrom && data.defaultTo) {
-      //입력처리
-      //현재 Day보다 큰 숫자 불가
-      const fromNum = +data.defaultFrom;
-      const toNum = +data.defaultTo;
-      if (fromNum > toNum) {
-        console.log("error");
-        return;
+    if (selectedOption === "option1") {
+      if (data.defaultFrom && data.defaultTo) {
+        //입력처리 -> 한글금지
+        const fromNum = +data.defaultFrom;
+        const toNum = +data.defaultTo;
+        //최소 1이상
+        if (fromNum > toNum) {
+          setError("defaultFrom", { message: "입력 범위를 확인해주세요." });
+          return;
+        }
+        if (fromNum > totalPages || toNum > totalPages) {
+          //현재 Day보다 큰 숫자 불가
+          setError("defaultFrom", { message: "입력 범위를 확인해주세요." });
+          setError("defaultTo", { message: "입력 범위를 확인해주세요." });
+          return;
+        }
+        resultNum = generateRangeArray(fromNum, toNum);
+        console.log(resultNum);
+        setNumber(resultNum);
+        setCurrentSection("SELECT");
+      } else {
+        setError("defaultFrom", { message: "입력이 필요합니다." });
+        setError("defaultTo", { message: "입력이 필요합니다." });
       }
-      resultNum = generateRangeArray(fromNum, toNum);
-      setNumber(resultNum);
-      setCurrentSection("SELECT");
-    }
-    if (selectedOption === "option2" && data.custom) {
-      //패턴 검사를 여기서?
-      resultNum = parseInputString(data.custom);
-      console.log(resultNum);
-      if (resultNum.includes(-1)) return;
-      setNumber(resultNum);
-      setCurrentSection("SELECT");
+    } else {
+      if (data.custom) {
+        resultNum = parseInputString(data.custom);
+        console.log(resultNum);
+        if (resultNum.includes(-1) || resultNum.length === 0) {
+          setError("custom", { message: "입력 형식을 확인해주세요." });
+          return;
+        }
+        resultNum = processArray(resultNum);
+        if (resultNum[resultNum.length - 1] > totalPages) {
+          setError("custom", { message: "입력된 범위를 확인해주세요." });
+          return;
+        }
+        console.log(resultNum);
+        setNumber(resultNum);
+        setCurrentSection("SELECT");
+      } else {
+        setError("custom", { message: "입력이 필요합니다." });
+      }
     }
   };
 
   return (
     <>
       <Wrapper>
-        <Title>STEP 1</Title>
+        <Title $current={currentSection}>STEP 1</Title>
         <Content>
           <Form onSubmit={handleSubmit(onValid)}>
             <RowDiv>
@@ -187,18 +247,22 @@ const RangeSec = () => {
                     {...register("defaultFrom")}
                     type="number"
                     min={1}
-                    autobg={currentSection}
+                    $autobg={currentSection}
+                    placeholder={1}
                   />
                   ~
                   <TextBox
                     {...register("defaultTo")}
                     type="number"
                     min={1}
-                    autobg={currentSection}
+                    $autobg={currentSection}
+                    placeholder={totalPages === 0 ? "" : totalPages}
                   />
                 </InputDiv>
               </OptionDiv>
-              <ErrorDiv></ErrorDiv>
+              <ErrorDiv>
+                {errors?.defaultFrom?.message || errors?.defaultTo?.message}
+              </ErrorDiv>
             </RowDiv>
             <RowDiv>
               <OptionDiv>
@@ -211,15 +275,20 @@ const RangeSec = () => {
                 <InputDiv disabled={selectedOption !== "option2"}>
                   <TextBox
                     {...register("custom", {
-                      pattern: /^\d+(?:-[,-]?\d+)?(?:,\d+(?:-[,-]?\d+)?)*$/,
+                      pattern: {
+                        //value: /^\s*\d+\s*(?:\s*[-,]\s*\d+\s*)?(?:,\s*\d+\s*(?:\s*[-,]\s*\d+\s*)?)*\s*$/,
+                        value: /^\s*\d+\s*(?:\s*[-,]\s*\d+\s*)?(?:,\s*\d+\s*(?:\s*[-,]\s*\d+\s*)?)*\s*(?:,)?\s*$/,
+                        message: "형식에 맞게 입력해주세요.",
+                      },
                     })}
                     type="text"
-                    custom={"custom"}
-                    autobg={currentSection}
+                    $custom={"custom"}
+                    $autobg={currentSection}
+                    placeholder="예: 1-5, 8, 11-13"
                   />
                 </InputDiv>
               </OptionDiv>
-              <ErrorDiv></ErrorDiv>
+              <ErrorDiv>{errors?.custom?.message}</ErrorDiv>
             </RowDiv>
             <ButtonDiv>
               <Button text={"다음"} />

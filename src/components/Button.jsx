@@ -1,4 +1,3 @@
-import React from "react";
 import styled from "styled-components";
 
 const SubmitInput = styled.input`
@@ -27,7 +26,7 @@ const SubmitInput = styled.input`
   color: #fff;
 
   cursor: pointer;
-  transition: 0.3s;
+  transition: 0.2s;
 
   &:hover {
     outline: 0;

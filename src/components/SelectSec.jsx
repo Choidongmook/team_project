@@ -1,9 +1,11 @@
 import { useForm } from "react-hook-form";
-import { useRecoilState, useSetRecoilState } from "recoil";
-import { categoryState, sectionState } from "../atoms";
+import { useRecoilState, useRecoilValue, useSetRecoilState } from "recoil";
+import { categoryState, dbWordList, numberState, sectionState } from "../atoms";
 import Button from "./Button";
 import styled from "styled-components";
 import { useEffect, useState } from "react";
+import { generateTotalList } from "../utils/randomSelect";
+import { wordList } from "../voca/voca";
 
 const Wrapper = styled.div`
   width: 100%;
@@ -11,7 +13,7 @@ const Wrapper = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px;
-  padding-top: 35px;
+  box-sizing: border-box;
 `;
 
 const Title = styled.h1`
@@ -23,6 +25,13 @@ const Title = styled.h1`
   color: #f5f6fa;
   background-color: #e1b12c;
   border-radius: 10px;
+
+  ${(props) =>
+    props.$current === "SELECT"
+      ? `
+      transform: scale(1.1); 
+      `
+      : null}
 `;
 
 const Content = styled.div`
@@ -30,18 +39,33 @@ const Content = styled.div`
   height: 100%;
   display: flex;
   align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding-top: 110px;
+  //background-color: blue;
+  padding-left: 40px;
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding-left: 50px;
+  gap: 15px;
+  width: 350px;
+  justify-content: center;
 `;
 
 const RowDiv = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding-right: 50px;
+`;
+
+const RowContent = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 80%;
 `;
 
 const CircleButton = styled.div`
@@ -64,10 +88,21 @@ const CircleButton = styled.div`
   width: 25px;
   height: 25px;
 
-  background-color: #2f3640;
+  //background-color: #44bd32;
+  background-color: ${(props) =>
+    props.$calc === "minus" ? "#c23616" : "#359126"};
   color: #fff;
 
   cursor: pointer;
+
+  transition: 0.2s;
+
+  &:hover {
+    outline: 0;
+    //background: #4cd137;
+    background-color: ${(props) =>
+      props.$calc === "minus" ? "#e84118" : "#44bd32"};
+  }
 `;
 
 const TextBox = styled.input`
@@ -90,7 +125,7 @@ const TextBox = styled.input`
 
   &:-webkit-autofill {
     -webkit-box-shadow: ${(props) =>
-      props.autobg === "SELECT"
+      props.$autobg === "SELECT"
         ? "0 0 0 30px #f5f6fa inset"
         : "0 0 0 30px #dcdde1 inset"};
     /* -webkit-box-shadow: 0 0 0 30px #fff inset; */
@@ -104,99 +139,178 @@ const TextBox = styled.input`
   }
 `;
 
+const ErrorDiv = styled.div`
+  font-size: 15px;
+  color: #e84118;
+  padding-left: 5px;
+`;
+
+const ButtonDiv = styled.div`
+  display: flex;
+  justify-content: space-between;
+  padding-top: 10px;
+  padding-right: 42px;
+`;
+
 const SelectSec = () => {
   const { register, handleSubmit, setValue, watch } = useForm();
   const [currentSection, setCurrentSection] = useRecoilState(sectionState);
+  const [error, setError] = useState("");
   const setCategory = useSetRecoilState(categoryState);
-  const [meanCount, setMeanCount] = useState(0);
-  const [wordCount, setWordCount] = useState(0);
+  const category = useRecoilValue(categoryState);
+  const number = useRecoilValue(numberState);
+  const setDbWordList = useSetRecoilState(dbWordList);
+
+  const MAX = number.length * 10;
+  const PAGE_MAX = 100;
 
   const onValid = (data) => {
     const mean = data.mean ? +data.mean : 0;
     const word = data.word ? +data.word : 0;
-    //총 단어 개수 보다는 적어야 함
+    const page = data.page ? +data.page : 1;
+
+    if (mean > MAX || word > MAX || page > PAGE_MAX) {
+      setError("입력을 확인해주세요.");
+      return;
+    }
+
+    setValue("mean", mean);
+    setValue("word", word);
+    setValue("page", page);
+
     setCategory({
       mean,
       word,
+      page,
     });
+    console.log(category);
     setCurrentSection("LIST");
+
     //db통신
+    //결과를 set함수에 넣기
+
+    const combinedWordList = generateTotalList(wordList, number);
+    console.log(combinedWordList);
+    setDbWordList(combinedWordList);
   };
 
-  const onClick = (event) => {
+  const prevSection = (event) => {
     event.preventDefault();
     setCurrentSection("RANGE");
   };
 
   const minusCount = (state) => {
-    if (state === "mean") {
-      setMeanCount((prev) => (prev - 1 >= 0 ? prev - 1 : 0));
+    //유효성 검사 (문자인지)
+    const currentValue = +watch(state);
+    if (state === "page") {
+      setValue(
+        state,
+        currentValue - 1 >= 1
+          ? currentValue - 1 > PAGE_MAX
+            ? PAGE_MAX
+            : currentValue - 1
+          : 1
+      );
     } else {
-      setWordCount((prev) => (prev - 1 >= 0 ? prev - 1 : 0));
+      setValue(state, currentValue - 1 >= 0 ? currentValue - 1 : 0);
     }
   };
 
   const plusCount = (state) => {
-    const MAX = 1000;
-    if (state === "mean") {
-      setMeanCount((prev) => (prev + 1 <= MAX ? prev + 1 : MAX));
+    const currentValue = +watch(state);
+    if (state === "page") {
+      setValue(
+        state,
+        currentValue + 1 <= PAGE_MAX ? currentValue + 1 : PAGE_MAX
+      );
     } else {
-      setWordCount((prev) => (prev + 1 <= MAX ? prev + 1 : MAX));
-    }
-  };
-
-  const changeValue = (state) => {
-    console.log(watch());
-    if (state === "mean") {
-      setMeanCount(watch(state));
-      setValue("mean", meanCount);
-    } else {
-      setWordCount(watch(state));
-      setValue("word", wordCount);
+      setValue(state, currentValue + 1 <= MAX ? currentValue + 1 : MAX);
     }
   };
 
   useEffect(() => {
-    setValue("mean", meanCount);
-    setValue("word", wordCount);
-  }, [meanCount, wordCount, setValue]);
+    setValue("mean", 0);
+    setValue("word", 0);
+    setValue("page", 1);
+  }, [setValue]);
 
   return (
     <>
       <Wrapper>
-        <Title>STEP 2</Title>
+        <Title $current={currentSection}>STEP 2</Title>
         <Content>
           <Form onSubmit={handleSubmit(onValid)}>
             <RowDiv>
               <label htmlFor="mean">뜻</label>
-              <CircleButton onClick={() => minusCount("mean")}>-</CircleButton>
-              <TextBox
-                onChange={() => changeValue("mean")}
-                id="mean"
-                {...register("mean")}
-                min={0}
-                type="number"
-                autobg={currentSection}
-              />
-              <CircleButton onClick={() => plusCount("mean")}>+</CircleButton>개
+              <RowContent>
+                <CircleButton
+                  $calc={"minus"}
+                  onClick={() => minusCount("mean")}
+                >
+                  -
+                </CircleButton>
+                <TextBox
+                  id="mean"
+                  {...register("mean")}
+                  min={0}
+                  type="number"
+                  $autobg={currentSection}
+                />
+                <CircleButton $calc={"plus"} onClick={() => plusCount("mean")}>
+                  +
+                </CircleButton>
+                개
+              </RowContent>
             </RowDiv>
             <RowDiv>
               <label htmlFor="word">단어</label>
-              <CircleButton onClick={() => minusCount("word")}>-</CircleButton>
-              <TextBox
-                onChange={() => changeValue("mean")}
-                id="word"
-                {...register("word")}
-                min={0}
-                type="number"
-                autobg={currentSection}
-              />
-              <CircleButton onClick={() => plusCount("word")}>+</CircleButton>개
+              <RowContent>
+                <CircleButton
+                  $calc={"minus"}
+                  onClick={() => minusCount("word")}
+                >
+                  -
+                </CircleButton>
+                <TextBox
+                  id="word"
+                  {...register("word")}
+                  min={0}
+                  type="number"
+                  $autobg={currentSection}
+                />
+                <CircleButton $calc={"plus"} onClick={() => plusCount("word")}>
+                  +
+                </CircleButton>
+                개
+              </RowContent>
             </RowDiv>
-            {/* <button onClick={onClick}>이전</button>
-        <input type="submit" value="다음" /> */}
-            <Button onClick={onClick} text={"이전"} />
-            <Button text={"다음"} />
+            <RowDiv>
+              <label htmlFor="page">출력</label>
+              <RowContent>
+                <CircleButton
+                  $calc={"minus"}
+                  onClick={() => minusCount("page")}
+                >
+                  -
+                </CircleButton>
+                <TextBox
+                  id="page"
+                  {...register("page")}
+                  min={1}
+                  type="number"
+                  $autobg={currentSection}
+                />
+                <CircleButton $calc={"plus"} onClick={() => plusCount("page")}>
+                  +
+                </CircleButton>
+                개
+              </RowContent>
+            </RowDiv>
+            <ErrorDiv>{error}</ErrorDiv>
+            <ButtonDiv>
+              <Button onClick={prevSection} text={"이전"} />
+              <Button text={"다음"} />
+            </ButtonDiv>
           </Form>
         </Content>
       </Wrapper>

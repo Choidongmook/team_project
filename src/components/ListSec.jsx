@@ -1,12 +1,5 @@
 import { useRecoilState, useRecoilValue } from "recoil";
-import {
-  categoryState,
-  dbWordList,
-  meanListState,
-  numberState,
-  sectionState,
-  wordListState,
-} from "../atoms";
+import { categoryState, dbWordList, sectionState } from "../atoms";
 import styled from "styled-components";
 import Button from "./Button";
 import WordHeader from "./Word/WordHeader";
@@ -30,6 +23,7 @@ const Title = styled.h1`
   border: #6f7071 solid 2px;
   width: fit-content;
   padding: 5px;
+  margin-top: 8px;
   font-weight: bold;
   color: #f5f6fa;
   background-color: #e1b12c;
@@ -50,13 +44,10 @@ const Content = styled.div`
   flex-direction: column;
   gap: 10px;
   align-items: center;
-  /* background-color: red; */
-  padding-top: 20px;
-  /* padding-left: 15px; */
+  padding-top: 10px;
 `;
 
 const WordContainer = styled.div`
-  /* background-color: blue; */
   width: 100%;
   height: 90%;
   display: flex;
@@ -64,14 +55,26 @@ const WordContainer = styled.div`
   align-items: center;
   gap: 20px;
   padding: 30px 5px;
-  padding-top: 20px;
+  padding-top: 15px;
   box-sizing: border-box;
 `;
 
 const WordOption = styled.div``;
 
+const WordSelect = styled.select`
+  padding: 3px 10px;
+  font-size: 15px;
+  font-family: inherit;
+  border-radius: 10px;
+  outline: none;
+  color: black;
+  cursor: pointer;
+  /* &:hover {
+    opacity: 0.8;
+  } */
+`;
+
 const WordList = styled.div`
-  /* background-color: green; */
   width: 100%;
   height: 90%;
   border: 1px solid black;
@@ -94,9 +97,13 @@ const WordRows = styled.div`
   }
 `;
 
-const WordSelect = styled.div`
+const WordSelectDiv = styled.div`
   display: flex;
   gap: 5px;
+  div {
+    font-weight: 600;
+    font-size: 20px;
+  }
 `;
 
 const WordSelectButton = styled.div`
@@ -117,11 +124,11 @@ const ButtonDiv = styled.div`
 const ListSec = () => {
   const [currentSection, setCurrentSection] = useRecoilState(sectionState);
   const category = useRecoilValue(categoryState);
-  const number = useRecoilValue(numberState);
   const [currentPage, setCurrentPage] = useState(1);
   const dbList = useRecoilValue(dbWordList);
-  const [meanList, setMeanList] = useRecoilState(meanListState);
-  const [wordList, setWordList] = useRecoilState(wordListState);
+  const [meanList, setMeanList] = useState([]);
+  const [wordList, setWordList] = useState([]);
+
   let rowCount = 1;
 
   const componentRef = useRef();
@@ -130,30 +137,42 @@ const ListSec = () => {
     if (dbList.length === 0) {
       return;
     }
-    let totalMeanList = [];
-    for (let page = 0; page < category.page; page++) {
-      const meanObject = {
-        id: page,
-        list: getRandomWords(dbList, category.mean),
-      };
-      totalMeanList.push(meanObject);
-    }
-    setMeanList(totalMeanList);
-    let totalWordList = [];
-    for (let page = 0; page < category.page; page++) {
-      const wordObject = {
-        id: page,
-        list: getRandomWords(dbList, category.word),
-      };
-      totalWordList.push(wordObject);
-    }
-    setWordList(totalWordList);
-  }, [dbList, category, setMeanList, setWordList]);
 
-  if (currentSection === "LIST") {
-    console.log("List: ", category);
-    console.log("List: ", number);
-  }
+    if (currentSection === "LIST") {
+      setCurrentPage(1);
+    } else {
+      return;
+    }
+
+    let totalList = [];
+
+    for (let page = 0; page < category.page; page++) {
+      const tempObject = {
+        id: page,
+        list: getRandomWords(dbList, category.mean + category.word),
+      };
+      totalList.push(tempObject);
+    }
+
+    const meanTempList = [];
+    const wordTempList = [];
+
+    totalList.forEach((item) => {
+      // id를 그대로 가져오고, list를 분할하여 새로운 배열에 추가
+      meanTempList.push({
+        id: item.id,
+        list: item.list.slice(0, category.mean),
+      }); // 첫 6개 요소
+      wordTempList.push({ id: item.id, list: item.list.slice(category.mean) }); // 나머지 요소
+    });
+
+    setMeanList(meanTempList);
+    setWordList(wordTempList);
+  }, [dbList, category, setMeanList, setWordList, currentSection]);
+
+  useEffect(() => {
+    console.log("list meanList", meanList);
+  }, [meanList]);
 
   const pageInc = () => {
     if (currentPage + 1 > category.page) return;
@@ -192,7 +211,7 @@ const ListSec = () => {
 
   const handlePrint = useReactToPrint({
     content: () => componentRef.current,
-    documentTitle: "파일명",
+    documentTitle: "Voca Test",
   });
 
   return (
@@ -202,16 +221,15 @@ const ListSec = () => {
         <Content>
           <WordContainer>
             <WordOption>
-              <select value={currentPage} onChange={handleSelectChange}>
+              <WordSelect value={currentPage} onChange={handleSelectChange}>
                 {renderOptions(category.page)}
-              </select>
+              </WordSelect>
             </WordOption>
             <WordList>
               <WordHeader />
               <WordRows>
-                {meanList.length === 0
-                  ? null
-                  : getCurrentList(meanList, currentPage - 1).map(
+                {meanList.length !== 0 && currentSection === "LIST"
+                  ? getCurrentList(meanList, currentPage - 1).map(
                       (item, index) => {
                         return (
                           <WordRow
@@ -220,14 +238,13 @@ const ListSec = () => {
                             category={"mean"}
                             mean={item.meaning}
                             word={item.word}
-                            day={item.day}
                           />
                         );
                       }
-                    )}
-                {wordList.length === 0
-                  ? null
-                  : getCurrentList(wordList, currentPage - 1).map(
+                    )
+                  : null}
+                {wordList.length !== 0 && currentSection === "LIST"
+                  ? getCurrentList(wordList, currentPage - 1).map(
                       (item, index) => {
                         return (
                           <WordRow
@@ -236,34 +253,36 @@ const ListSec = () => {
                             category={"word"}
                             mean={item.meaning}
                             word={item.word}
-                            day={item.day}
                           />
                         );
                       }
-                    )}
+                    )
+                  : null}
               </WordRows>
             </WordList>
-            <WordSelect>
+            <WordSelectDiv>
               <WordSelectButton onClick={pageDec}>{"<"}</WordSelectButton>
               <div>{currentPage}</div>
               <WordSelectButton onClick={pageInc}>{">"}</WordSelectButton>
-            </WordSelect>
+            </WordSelectDiv>
           </WordContainer>
 
           <ButtonDiv>
             <Button onClick={prevSection} text={"이전"} />
-            <Button onClick={printPage} text={"출력"} />
+            <Button onClick={printPage} text={"출력"} isPrint={true} />
           </ButtonDiv>
         </Content>
       </Wrapper>
-      <PrintDiv>
-        <WordPage
-          meanList={meanList}
-          wordList={wordList}
-          currentPage={currentPage}
-          forPrintRef={componentRef}
-        />
-      </PrintDiv>
+      {currentSection === "LIST" ? (
+        <PrintDiv>
+          <WordPage
+            meanList={meanList}
+            wordList={wordList}
+            currentPage={category.page}
+            forPrintRef={componentRef}
+          />
+        </PrintDiv>
+      ) : null}
     </>
   );
 };

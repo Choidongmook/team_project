@@ -3,13 +3,13 @@ import styled from "styled-components";
 const Row = styled.div`
   width: 100%;
   display: grid;
-  grid-template-columns: 0.5fr 1fr 0.5fr 1fr 1fr;
+  grid-template-columns: 0.5fr 1fr 1.5fr 1.5fr;
   background-color: #ecf0f1;
   border-radius: 10px;
   div {
     text-align: center;
     padding: 7px 0;
-    font-size: 13px;
+    font-size: 14px;
   }
 `;
 
@@ -37,14 +37,13 @@ const MeanDiv = styled.div`
   font-weight: ${(props) => (props.$fontBold === "mean" ? "bold" : null)};
 `;
 
-const WordRow = ({ category, mean, word, day, count }) => {
+const WordRow = ({ category, mean, word, count }) => {
   return (
     <Row>
       <div>{count}</div>
       <CategoryDiv $categoryColor={category}>
         <div>{category === "mean" ? "뜻" : "영단어"}</div>
       </CategoryDiv>
-      <div>{day}</div>
       <WordDiv $fontBold={category}>{word}</WordDiv>
       <MeanDiv $fontBold={category}>{mean}</MeanDiv>
     </Row>

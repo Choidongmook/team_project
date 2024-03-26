@@ -21,6 +21,7 @@ const Title = styled.h1`
   border: #6f7071 solid 2px;
   width: fit-content;
   padding: 5px;
+  margin-top: 8px;
   font-weight: bold;
   color: #f5f6fa;
   background-color: #e1b12c;
@@ -41,7 +42,7 @@ const Content = styled.div`
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  padding-top: 110px;
+  padding-top: 130px;
   //background-color: blue;
   padding-left: 40px;
 `;
@@ -88,7 +89,6 @@ const CircleButton = styled.div`
   width: 25px;
   height: 25px;
 
-  //background-color: #44bd32;
   background-color: ${(props) =>
     props.$calc === "minus" ? "#c23616" : "#359126"};
   color: #fff;
@@ -143,12 +143,13 @@ const ErrorDiv = styled.div`
   font-size: 15px;
   color: #e84118;
   padding-left: 5px;
+  height: 20px;
 `;
 
 const ButtonDiv = styled.div`
   display: flex;
   justify-content: space-between;
-  padding-top: 10px;
+  padding-top: 5px;
   padding-right: 42px;
 `;
 
@@ -157,7 +158,6 @@ const SelectSec = () => {
   const [currentSection, setCurrentSection] = useRecoilState(sectionState);
   const [error, setError] = useState("");
   const setCategory = useSetRecoilState(categoryState);
-  const category = useRecoilValue(categoryState);
   const number = useRecoilValue(numberState);
   const setDbWordList = useSetRecoilState(dbWordList);
 
@@ -169,7 +169,7 @@ const SelectSec = () => {
     const word = data.word ? +data.word : 0;
     const page = data.page ? +data.page : 1;
 
-    if (mean > MAX || word > MAX || page > PAGE_MAX) {
+    if (mean > MAX || word > MAX || page > PAGE_MAX || mean + word > MAX) {
       setError("입력을 확인해주세요.");
       return;
     }
@@ -183,14 +183,14 @@ const SelectSec = () => {
       word,
       page,
     });
-    console.log(category);
-    setCurrentSection("LIST");
 
+    setCurrentSection("LIST");
+    setError("");
     //db통신
     //결과를 set함수에 넣기
 
     const combinedWordList = generateTotalList(wordList, number);
-    console.log(combinedWordList);
+
     setDbWordList(combinedWordList);
   };
 
@@ -223,8 +223,20 @@ const SelectSec = () => {
         state,
         currentValue + 1 <= PAGE_MAX ? currentValue + 1 : PAGE_MAX
       );
-    } else {
-      setValue(state, currentValue + 1 <= MAX ? currentValue + 1 : MAX);
+    } else if (state === "mean") {
+      setValue(
+        "mean",
+        currentValue + 1 + Number(watch("word")) <= MAX
+          ? currentValue + 1
+          : currentValue
+      );
+    } else if (state === "word") {
+      setValue(
+        "word",
+        currentValue + 1 + Number(watch("mean")) <= MAX
+          ? currentValue + 1
+          : currentValue
+      );
     }
   };
 
